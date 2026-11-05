@@ -78,7 +78,9 @@ async function startServer() {
     }),
   );
 
-  if (process.env.NODE_ENV !== "production") {
+  const launchedFromBuild = process.argv[1]?.replaceAll("\\", "/").endsWith("dist/index.js") === true;
+  const isProduction = process.env.NODE_ENV === "production" || process.env.LANBEAM_PRODUCTION === "1" || launchedFromBuild;
+  if (!isProduction) {
     await setupVite(app, server);
   } else {
     serveStatic(app);
