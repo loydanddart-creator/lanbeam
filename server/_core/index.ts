@@ -7,27 +7,67 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { getLanFile, listLanFiles, storeIncomingFile, type FileDirection } from "../lanFiles";
 
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
+
+  // JSON/form parsers stay separate from the raw upload stream.
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
+
+  app.get("/api/lan/status", async (_req, res) => {
+    const files = await listLanFiles();
+    res.json({ status: "ready", filesCount: files.length, serverTime: new Date().toISOString() });
+  });
+
+  app.get("/api/lan/files", async (_req, res) => {
+    res.json(await listLanFiles());
+  });
+
+  app.post("/api/lan/upload", async (req, res) => {
+    const headerValue = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] ?? "" : value ?? "";
+    const directionHeader = headerValue(req.headers["x-lan-direction"]);
+    const direction: FileDirection = directionHeader === "pc-to-phone" ? "pc-to-phone" : "phone-to-pc";
+    const fileName = headerValue(req.headers["x-file-name"]) || "file";
+    const mimeType = headerValue(req.headers["content-type"]);
+
+    try {
+      const record = await storeIncomingFile(req, fileName, mimeType, direction);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("[LanBeam] Upload failed:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Не удалось сохранить файл" });
+    }
+  });
+
+  app.get("/api/lan/files/:id/download", async (req, res) => {
+    const file = await getLanFile(req.params.id);
+    if (!file) {
+      res.status(404).json({ error: "Файл не найден" });
+      return;
+    }
+
+    res.download(file.filePath, file.record.name, {
+      headers: { "Content-Type": file.record.mimeType },
+    });
+  });
+
   registerOAuthRoutes(app);
-  // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
       createContext,
-    })
+    }),
   );
-  // development mode uses Vite, production mode uses static files
+
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
