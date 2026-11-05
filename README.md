@@ -1,14 +1,41 @@
 # LanBeam
 
-React / Express / tRPC / Drizzle starter, adapted from the Sandbox web-db-user template.
+LanBeam передаёт файлы и текст между телефоном и компьютером в одной Wi‑Fi сети. Регистрация и облако не нужны.
 
-- `pnpm dev`: development server; honors `PORT` (default 3000).
-- `pnpm build` / `pnpm start`: build and serve `dist/index.js` and `dist/public/`.
-- `pnpm db:migrate`: apply checked-in migrations. `pnpm db:push`: generate and apply new schema changes.
-- `pnpm check` / `pnpm test`: types and application tests.
+## Самый простой запуск
 
-Start with the Webdev skill's default-template guide. Platform login, storage, payments and service contracts live in its shared references; read the relevant capability before extending its helper.
+### Windows
 
-`server/_core/publicConfig.ts` exposes only named public runtime values. Private keys stay server-side. The platform serves managed `/manus-storage/` assets; the application does not register a second proxy.
+1. Скачайте проект через кнопку **Code → Download ZIP** на GitHub.
+2. Распакуйте архив.
+3. Дважды нажмите `START-LANBEAM-WINDOWS.bat`.
+4. При первом запуске дождитесь автоматической установки зависимостей.
+5. В окне запуска будет адрес для телефона, например `http://192.168.1.25:3000`.
+6. Откройте этот адрес в браузере телефона, подключённого к той же Wi‑Fi сети.
 
-Platform configuration is readable and editable through `webdev.config`. Default settings are initial values, not enforced constraints. The agent may modify the files, commands and configuration or follow the flexible guide for another stack.
+Если Windows покажет предупреждение брандмауэра, разрешите Node.js доступ к **частным сетям**. Чтобы остановить программу, закройте окно запуска.
+
+### macOS / Linux
+
+Откройте Terminal один раз, перейдите в папку проекта и сделайте файл запуска исполняемым:
+
+```bash
+chmod +x START-LANBEAM.sh
+```
+
+После этого запускайте приложение двойным кликом по `START-LANBEAM.sh` или командой `./START-LANBEAM.sh`. Адрес для телефона будет напечатан в окне.
+
+## Обмен текстом
+
+В блоке **«Общий текст»** можно вставить ссылку, сообщение или любой фрагмент текста и нажать **«Сохранить текст»**. Текст появится на другом устройстве автоматически. Он хранится локально в `.lanbeam-data/text.json`.
+
+## Ручной запуск
+
+Если удобнее использовать терминал:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+После запуска откройте `http://localhost:3000` на компьютере и адрес компьютера с портом `3000` на телефоне.

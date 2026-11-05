@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { getLanFile, listLanFiles, storeIncomingFile, type FileDirection } from "../lanFiles";
+import { readLanText, writeLanText } from "../lanText";
 
 async function startServer() {
   const app = express();
@@ -29,6 +30,15 @@ async function startServer() {
 
   app.get("/api/lan/files", async (_req, res) => {
     res.json(await listLanFiles());
+  });
+
+  app.get("/api/lan/text", async (_req, res) => {
+    res.json(await readLanText());
+  });
+
+  app.put("/api/lan/text", async (req, res) => {
+    const text = typeof req.body?.text === "string" ? req.body.text : "";
+    res.json(await writeLanText(text));
   });
 
   app.post("/api/lan/upload", async (req, res) => {

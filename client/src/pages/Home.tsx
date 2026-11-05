@@ -15,7 +15,9 @@ import {
   Monitor,
   Network,
   RefreshCw,
+  Save,
   Smartphone,
+  TextCursorInput,
   UploadCloud,
   Wifi,
   X,
@@ -40,6 +42,7 @@ type PendingFile = {
   status: PendingStatus;
   error?: string;
 };
+type LanText = { text: string; updatedAt: string | null };
 
 const directionLabels: Record<FileDirection, string> = {
   "phone-to-pc": "Телефон → ПК",
@@ -109,7 +112,11 @@ export default function Home() {
   const [direction, setDirection] = useState<FileDirection>("phone-to-pc");
   const [pending, setPending] = useState<PendingFile[]>([]);
   const [copied, setCopied] = useState(false);
+  const [sharedText, setSharedText] = useState("");
+  const [savedText, setSavedText] = useState<LanText>({ text: "", updatedAt: null });
+  const [textSaving, setTextSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const savedTextRef = useRef<LanText>({ text: "", updatedAt: null });
   const uploadRunning = useRef(false);
 
   const refreshFiles = useCallback(async () => {
@@ -126,11 +133,29 @@ export default function Home() {
     }
   }, []);
 
+  const refreshText = useCallback(async () => {
+    try {
+      const response = await fetch("/api/lan/text", { cache: "no-store" });
+      if (!response.ok) return;
+      const value = (await response.json()) as LanText;
+      const previousText = savedTextRef.current.text;
+      savedTextRef.current = value;
+      setSavedText(value);
+      setSharedText((current) => current === previousText ? value.text : current);
+    } catch {
+      // Retry with the next polling cycle.
+    }
+  }, []);
+
   useEffect(() => {
     void refreshFiles();
-    const interval = window.setInterval(() => void refreshFiles(), 5000);
+    void refreshText();
+    const interval = window.setInterval(() => {
+      void refreshFiles();
+      void refreshText();
+    }, 3000);
     return () => window.clearInterval(interval);
-  }, [refreshFiles]);
+  }, [refreshFiles, refreshText]);
 
   const queuedCount = useMemo(() => pending.filter((item) => item.status === "queued").length, [pending]);
   const address = typeof window === "undefined" ? "" : window.location.href;
@@ -195,6 +220,27 @@ export default function Home() {
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
       toast.error("Не удалось скопировать адрес");
+    }
+  }
+
+  async function saveText() {
+    setTextSaving(true);
+    try {
+      const response = await fetch("/api/lan/text", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sharedText }),
+      });
+      if (!response.ok) throw new Error("Не удалось сохранить текст");
+      const value = (await response.json()) as LanText;
+      savedTextRef.current = value;
+      setSavedText(value);
+      setSharedText(value.text);
+      toast.success("Текст доступен на втором устройстве");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Не удалось сохранить текст");
+    } finally {
+      setTextSaving(false);
     }
   }
 
@@ -308,6 +354,32 @@ export default function Home() {
               </button>
             </div>
           )}
+
+          <section className="text-share-card">
+            <div className="text-share-heading">
+              <div>
+                <div className="eyebrow"><span className="eyebrow-line" /> быстрый обмен</div>
+                <h2>Общий текст</h2>
+              </div>
+              <TextCursorInput size={20} className="text-share-icon" />
+            </div>
+            <p className="text-share-hint">Вставьте сообщение, ссылку или код — сохранённый текст появится на телефоне и ПК.</p>
+            <textarea
+              className="shared-textarea"
+              value={sharedText}
+              onChange={(event) => setSharedText(event.target.value)}
+              placeholder="Напишите или вставьте текст здесь…"
+              maxLength={10000}
+              rows={5}
+            />
+            <div className="text-share-actions">
+              <span>{sharedText.length} / 10 000 символов{savedText.updatedAt ? ` · обновлено ${formatDate(savedText.updatedAt)}` : ""}</span>
+              <button type="button" className="save-text-button" onClick={() => void saveText()} disabled={textSaving}>
+                {textSaving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                {textSaving ? "Сохраняем…" : "Сохранить текст"}
+              </button>
+            </div>
+          </section>
 
           <div className="history-heading">
             <div><div className="eyebrow"><span className="eyebrow-line" /> на сервере</div><h2>Последние файлы</h2></div>
